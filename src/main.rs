@@ -1,11 +1,9 @@
 mod shader;
 
-use std::ffi::c_void;
-
-use gl::{ARRAY_BUFFER, FLOAT, STATIC_DRAW};
-use glfw::{Action, Context, GlfwReceiver, Key, fail_on_errors};
-
 use crate::shader::compile_and_link_shader;
+use gl::{ARRAY_BUFFER, FLOAT, STATIC_DRAW};
+use glfw::{Action, Context, GlfwReceiver, Key, fail_on_errors, ffi::glfwGetTime};
+use std::ffi::{CString, c_void};
 
 fn main() {
     let mut glfw = glfw::init(fail_on_errors!()).unwrap();
@@ -34,10 +32,8 @@ fn main() {
     // 5️⃣ Load OpenGL function pointers
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let vertices: [f32; 9] = [
-        -0.5, -0.5, 0.0, //top
-        0.5, -0.5, 0.0, // right
-        0.0, 0.5, 0.0, //left
+    let vertices: [f32; 18] = [
+        -0.5, -0.5, 0.0, 1.0, 0.0, 0.0, 0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0,
     ];
 
     let (mut vbo, mut vao): (u32, u32) = (0, 0);
@@ -64,10 +60,21 @@ fn main() {
             3,
             FLOAT,
             gl::FALSE,
-            (3 * std::mem::size_of::<f32>()) as i32,
+            (6 * std::mem::size_of::<f32>()) as i32,
             std::ptr::null(),
         );
         gl::EnableVertexAttribArray(0);
+
+        gl::VertexAttribPointer(
+            1,
+            3,
+            FLOAT,
+            gl::FALSE,
+            (6 * std::mem::size_of::<f32>()) as i32,
+            (3 * std::mem::size_of::<f32>()) as *const c_void,
+        );
+
+        gl::EnableVertexAttribArray(1);
     }
 
     while !window.should_close() {
@@ -75,8 +82,17 @@ fn main() {
         unsafe {
             gl::ClearColor(0.1, 0.1, 0.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
-
             gl::UseProgram(shader_program);
+
+            //uniforms
+            let time = glfwGetTime() as f32;
+            let green_value: f32 = (time.sin() / 2.0) + 0.5;
+            //get location of the uniform
+            let our_color = CString::new("ourColor").unwrap();
+            let vertex_color_location = gl::GetUniformLocation(shader_program, our_color.as_ptr());
+            //set uniform
+            gl::Uniform4f(vertex_color_location, 0.0, green_value, 0.0, 1.0);
+
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
 
